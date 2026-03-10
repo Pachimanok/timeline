@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import fs from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -28,6 +29,27 @@ app.use('/api/users', userRoutes);
 // Health check
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Serve frontend in production
+app.use(express.static(path.join(__dirname, '../dist')));
+
+let indexContent = null;
+app.use((req, res) => {
+    // Prevent API 404s from returning the React index.html
+    if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'Endpoint no encontrado' });
+    }
+
+    try {
+        if (!indexContent) {
+            indexContent = fs.readFileSync(path.join(__dirname, '../dist/index.html'), 'utf-8');
+        }
+        res.set('Content-Type', 'text/html').send(indexContent);
+    } catch (err) {
+        console.error('Failed to send index.html:', err);
+        res.status(500).send('Error loading frontend');
+    }
 });
 
 // Initialize DB and start
